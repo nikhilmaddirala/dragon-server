@@ -1,0 +1,3 @@
+[submodule "skarabox"]
+	path = skarabox
+	url = git@github.com:nikhilmaddirala/skarabox.git
