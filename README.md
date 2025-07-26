@@ -17,3 +17,6 @@ nix build .#manualHtml
 ```
 
 And then opening the resulting `./result/share/doc/skarabox/index.html` file.
+
+# Notes
+gh repo create dragon-skarabox --source . --public --push
