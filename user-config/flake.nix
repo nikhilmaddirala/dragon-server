@@ -1,0 +1,1 @@
+/Users/nikhilmaddirala/.config/nix/nm-nix-config/flake.nix
