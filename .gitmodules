@@ -2,3 +2,6 @@
 	path = skarabox
 	url = git@github.com:nikhilmaddirala/skarabox.git
 	branch = main
+[submodule "nixos-anywhere"]
+	path = nixos-anywhere
+	url = https://github.com/nix-community/nixos-anywhere.git
