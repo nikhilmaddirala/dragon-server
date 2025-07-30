@@ -2,144 +2,131 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-This project includes a git submodule called Skarabaox (forked version), which is the core of the project. The rest of the directory contains various experiments with the Skarabaox framework and related tools.
+## Project Overview
 
+Dragon-server is a collection-based repository for experimenting with NixOS server deployment frameworks. It contains multiple approaches for setting up NixOS servers on cloud VPS platforms, organized into distinct collections that can be used independently or together.
 
-## Skarabox Overview
+## Repository Architecture
 
-Skarabox is a NixOS server installation framework that provides a streamlined way to install NixOS on servers with batteries-included security and automation features. It combines three main components:
+The repository is structured as a **collection-based architecture** with four main collections:
 
-1. **Beacon** - A bootable ISO for server installation that creates WiFi hotspots and assigns static IPs
-2. **Flake Module** - Manages one or more servers under the `skarabox.hosts` option with automated commands and packages
-3. **NixOS Module** - Provides headless installation via nixos-anywhere, ZFS encryption, remote root pool decryption, and deployment tools
+### 1. Skarabox Collection (`skarabox-collection/`)
+- **Core Framework**: Git submodule of forked Skarabox - a NixOS server installation framework
+- **Key Features**: Bootable beacon ISOs, ZFS encryption, remote unlock, deployment automation
+- **Configuration**: `my-skarabox/` contains generated configuration and state
+- **Primary Use**: Headless NixOS installation with batteries-included security
+
+### 2. NixOS Anywhere Collection (`nixos-anywhere-collection/`)  
+- **Core Framework**: Git submodule of nixos-anywhere project
+- **Key Features**: Remote NixOS installation, disk partitioning, configuration deployment
+- **Configuration**: `my-nixos-anywhere/` contains installation configuration
+- **Primary Use**: Direct remote installation without custom ISOs
+
+### 3. Self-host Blocks Collection (`selfhostblocks-collection/`)
+- **Core Framework**: Git submodule of selfhostblocks - modular NixOS service blocks
+- **Key Features**: Pre-configured service modules (Nextcloud, Vaultwarden, monitoring, etc.)
+- **Configuration**: `my-selfhostblocks/` for service configurations  
+- **Primary Use**: Composable self-hosted services with built-in best practices
+
+### 4. NM Nix Collection (`nm-nix-collection/`)
+- **Personal Configurations**: Nikhil's Nix configurations and experiments
+- **Submodules**: `nix-config/` (Nix Darwin), `dragon-test-project/`, `selfhostblocks-test/`
+- **Primary Use**: Development environments and configuration templates
 
 ## Essential Commands
 
-### Development and Testing
-- `nix flake show` - Display all available packages and checks
-- `nix run .#init` - Initialize a new Skarabox template (interactive setup)
-- `nix run .#checks.x86_64-linux.<test-name>` - Run specific tests (oneOSnoData, oneOStwoData, twoOSnoData, twoOStwoData, staticIP)
-- `nix build .#checks.x86_64-linux.lib` - Build library tests
+### Skarabox Commands (Primary Framework)
+Navigate to `skarabox-collection/skarabox/` for all Skarabox operations:
 
-### Host Management (replace `<hostname>` with actual host name)
-- `nix run .#<hostname>-beacon-vm` - Start beacon VM for testing
-- `nix run .#<hostname>-install-on-beacon` - Install NixOS on target host
-- `nix run .#<hostname>-ssh` - SSH into the host
-- `nix run .#<hostname>-boot-ssh` - SSH into host during boot (for decryption)
-- `nix run .#<hostname>-unlock` - Decrypt root partition remotely
-- `nix run .#<hostname>-gen-knownhosts-file` - Generate known hosts file
-- `nix run .#<hostname>-get-facter` - Generate hardware configuration
-
-### Secret Management
-- `nix run .#sops <secrets-file>` - Edit SOPS encrypted secrets file
-- `nix run .#sops-create-main-key` - Create main SOPS encryption key
-- `nix run .#gen-new-host <hostname>` - Generate new host configuration with secrets
-
-### Deployment
-- `nix run .#deploy-rs` - Deploy using deploy-rs
-- `nix run .#colmena apply` - Deploy using colmena
-
-## Architecture Overview
-
-### Core Components
-
-**Flake Structure**: The project uses flake-parts for modular flake management. The main flake exports:
-- `flakeModules.default` - The core flake module for host management
-- `nixosModules.skarabox` - NixOS modules for target hosts  
-- `templates.skarabox` - Template for new projects
-
-**Host Configuration**: Each host is managed under `skarabox.hosts.<name>` with configuration including:
-- SSH keys and network settings (IP, ports)
-- SOPS secrets file paths and encryption keys
-- System architecture and NixOS modules
-- Hardware configuration via nixos-facter
-
-### Key Technologies
-
-**ZFS with Encryption**: 
-- Root pool uses native ZFS encryption with remote unlock capability
-- Data pool encrypted separately, auto-unlocked after root pool decryption
-- Implements "Erase your darlings" pattern - root filesystem reset on each boot
-
-**SOPS Integration**:
-- Secrets encrypted with age using main key + host SSH key
-- One secrets file per host to avoid cross-host secret leakage
-- Automated key generation and SOPS configuration management
-
-**Networking**:
-- Supports both DHCP and static IP configuration
-- Boot-time SSH server in initrd for remote root pool decryption
-- WiFi hotspot creation on beacon for network-independent access
-
-### Module Structure
-
-- `modules/configuration.nix` - Main host configuration (users, networking, SSH)
-- `modules/disks.nix` - ZFS pool setup and encryption configuration  
-- `modules/bootssh.nix` - Boot-time SSH for remote decryption
-- `modules/beacon.nix` - Beacon ISO configuration
-- `modules/hotspot.nix` - WiFi hotspot setup for beacon
-- `lib/` - Utility scripts for initialization, host generation, SOPS management
-- `tests/` - Comprehensive test suite for different disk configurations
-
-### Testing Strategy
-
-The test suite validates complete installation workflows:
-- Different disk layouts (1-2 OS disks, 0-2 data disks)
-- Full beacon VM → installation → reboot → deployment cycle
-- Both deploy-rs and colmena deployment methods
-- Static IP configuration testing
-
-Tests run in CI using KVM-enabled GitHub runners and test the complete end-to-end installation process including beacon creation, nixos-anywhere installation, ZFS encryption/decryption, and deployment.
-
-## Cross-Platform Compatibility
-
-### macOS Issues and Solutions
-
-**Problem**: Host-specific commands (e.g., `nix run .#<hostname>-gen-knownhosts-file`, `nix run .#<hostname>-get-facter`) fail on macOS with error:
-```
-Cannot build '/nix/store/...-nixpkgs-patched.drv'. Reason: required system or feature not available
-```
-
-**Root Cause**: The `mkHostPackages` function in `flakeModule.nix` was using target system packages (x86_64-linux) for host-side commands on macOS (aarch64-darwin).
-
-**Fix Applied**: Modified `flakeModule.nix` to use host system packages (`hostPkgs`) instead of target packages (`cfg'.pkgs`) for local command execution:
-```nix
-mkHostPackages = hostPkgs: name: cfg': let
-  # Commands now use hostPkgs (host system) instead of cfg'.pkgs (target system)
-```
-
-### Manual Alternatives for Cross-Platform Compatibility
-
-When automated commands fail, use these manual alternatives:
-
-#### Generate Known Hosts File
 ```bash
-# Manual method (universal)
+# Initialize new Skarabox instance
+nix run .#init
+
+# Host management (replace <hostname> with actual host)
+nix run .#<hostname>-beacon-vm        # Start beacon VM for testing
+nix run .#<hostname>-install-on-beacon # Install NixOS on target host
+nix run .#<hostname>-ssh              # SSH into the host
+nix run .#<hostname>-boot-ssh         # SSH during boot (for decryption)
+nix run .#<hostname>-unlock           # Decrypt root partition remotely
+nix run .#<hostname>-gen-knownhosts-file # Generate known hosts file
+nix run .#<hostname>-get-facter       # Generate hardware configuration
+
+# Secret management
+nix run .#sops <secrets-file>         # Edit SOPS encrypted secrets
+nix run .#sops-create-main-key       # Create main SOPS encryption key
+nix run .#gen-new-host <hostname>    # Generate new host with secrets
+
+# Deployment
+nix run .#deploy-rs                  # Deploy using deploy-rs
+nix run .#colmena apply              # Deploy using colmena
+
+# Development and testing
+nix flake show                       # Display available packages/checks
+nix run .#checks.x86_64-linux.<test> # Run specific tests
+```
+
+### Cross-Platform Development
+
+When working on macOS with Skarabox, be aware of cross-platform limitations:
+
+```bash
+# For local development commands that should work on both macOS and Linux
+nix run /Users/nikhilmaddirala/repos/dragon-server/skarabox-collection/skarabox#init -- -p /Users/nikhilmaddirala/repos/dragon-server/skarabox-collection/skarabox
+
+# Manual alternatives for cross-platform compatibility
 echo "[$(cat ./myskarabox/ip)]:22 $(cat ./myskarabox/host_key.pub | cut -d' ' -f1-2)" > ./myskarabox/known_hosts
-echo "[$(cat ./myskarabox/ip)]:2222 $(cat ./myskarabox/host_key.pub | cut -d' ' -f1-2)" >> ./myskarabox/known_hosts
+ssh -o StrictHostKeyChecking=no -p 22 root@$(cat ./myskarabox/ip) sudo nixos-facter > ./myskarabox/facter.json
 ```
 
-#### Hardware Detection
-```bash
-# Manual SSH method (universal)
-ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=./myskarabox/known_hosts -p 22 root@$(cat ./myskarabox/ip) sudo nixos-facter > ./myskarabox/facter.json
-```
+## Key Technologies and Architecture
 
-**Note**: `nixos-facter` is pre-installed in Skarabox beacon but not in Hetzner recovery mode. For recovery mode, install Nix and nixos-facter first.
+### Skarabox Technical Stack
+- **ZFS Encryption**: Native ZFS encryption with remote unlock capability
+- **SOPS Secrets**: Age-based encryption with per-host key isolation  
+- **Beacon System**: Custom bootable ISOs with WiFi hotspots for network-independent access
+- **Deployment Tools**: Both deploy-rs and colmena supported
+- **Testing Framework**: Comprehensive VM-based testing with multiple disk configurations
 
-## SSH Key Architecture
+### Module Architecture
+- **Flake Structure**: Uses flake-parts for modular flake management
+- **Host Configuration**: Managed under `skarabox.hosts.<name>` options
+- **NixOS Modules**: Separate modules for disks, SSH, beacon, hotspot functionality
+- **Library Scripts**: Utility functions for initialization, host generation, SOPS management
 
-**Host Keys vs Client Keys**:
-- **Host Keys** (`myskarabox/host_key.pub`): Authenticate the server to prevent man-in-the-middle attacks
-- **Client Keys** (`myskarabox/ssh.pub`): Authenticate the user to the server for login
+### Cross-Platform Considerations
+The repository includes known issues and solutions for macOS development:
+- Host-specific commands may fail due to system architecture mismatches
+- Manual alternatives provided for commands that require Linux-specific tools
+- SSH key architecture distinguishes between host keys (server authentication) and client keys (user authentication)
 
-Host keys are generated during setup and used in known_hosts files to verify server identity during SSH connections.
+## Development Workflow
 
-## Troubleshooting
+### Setting Up a New Host
+1. Navigate to appropriate collection directory
+2. Run initialization command for chosen framework
+3. Configure host-specific settings (IP, SSH keys, modules)
+4. Generate secrets and hardware configuration
+5. Test with beacon VM before production deployment
+6. Deploy using chosen deployment tool
 
-### Common Error Patterns
+### Testing and Validation
+- Use VM-based testing for safe experimentation
+- Comprehensive test suite covers different disk layouts and deployment methods
+- Manual SSH verification for connectivity testing
+- Cross-platform testing on both macOS and Linux
 
-1. **Cross-platform build failures**: Use manual commands or run on Linux system
-2. **nixos-facter not found**: Ensure server is running Skarabox beacon, not recovery mode
-3. **SSH connection timeouts**: Verify server is accessible and SSH keys are correct
-4. **Missing host-specific commands**: Commands only exist after configuring hosts in flake
+### Troubleshooting Common Issues
+- **Cross-platform build failures**: Use manual commands or Linux system
+- **SSH connection issues**: Verify keys, known_hosts, and network accessibility  
+- **Missing commands**: Ensure hosts are configured in flake before accessing host-specific commands
+- **SOPS decryption**: Verify key paths and age key availability
+
+## Tasks and Documentation
+
+The `tasks/` directory contains detailed implementation notes and solutions:
+- Cross-platform compatibility fixes
+- SSH configuration and troubleshooting
+- Known issues and their resolutions
+- Implementation journey documentation
+
+Each task file provides comprehensive analysis, root cause identification, and step-by-step solutions for complex technical challenges encountered during development.
