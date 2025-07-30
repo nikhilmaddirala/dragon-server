@@ -14,7 +14,9 @@ Folder structure:
 - **nm-nix-collection/**: Collection containing Nikhil's Nix configuration files
   - nix-config/: git submodule containing my system configuration files relevant for server deployment - especially my Nix Darwin flake
   - dragon-test-project/: git submodule containing NixOS configuration experiments
-  - selfhostblocks-test/: git submodule containing NixOS configurations using selfhostblocks framework 
+  - selfhostblocks-test/: git submodule containing NixOS configurations using selfhostblocks framework
+- **m3tam3re-collection/**: Collection containing m3tam3re's NixOS configuration files
+  - nixos-config/: git submodule containing m3tam3re's comprehensive NixOS setup with multiple hosts, containers, and self-hosted services 
 
 ## Skarabax
 For developing a local fork, you need to replace the commands in the instructions with the following:
