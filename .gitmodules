@@ -28,3 +28,6 @@
 [submodule "references/@dustinlyons-nixos-config"]
 	path = references/@dustinlyons-nixos-config
 	url = https://github.com/dustinlyons/nixos-config.git
+[submodule "references/@nix-community-nixos-anywhere-examples"]
+	path = references/@nix-community-nixos-anywhere-examples
+	url = https://github.com/nix-community/nixos-anywhere-examples.git
