@@ -17,3 +17,6 @@
 [submodule "nm-nix-collection/dragon-test-project"]
 	path = nm-nix-collection/dragon-test-project
 	url = git@github.com:nikhilmaddirala/dragon-test-project.git
+[submodule "m3tam3re-collection/nixos-config"]
+	path = m3tam3re-collection/nixos-config
+	url = https://code.m3ta.dev/m3tam3re/nixos-config.git
