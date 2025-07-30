@@ -1,27 +1,59 @@
 # Self Host Blocks Setup Guide
 
-Self Host Blocks is a NixOS-based server management framework for self-hosting using building blocks and promoting best practices. This guide shows how to initialize configurations from the selfhostblocks framework and deploy to servers.
+Self Host Blocks is a NixOS-based server management framework that provides building blocks for self-hosting services with built-in security, monitoring, and automation.
 
-## Quick Setup Guide
+**Documentation**: https://shb.skarabox.com/ | **Services**: https://shb.skarabox.com/services.html | **Usage**: https://shb.skarabox.com/usage.html
 
-**Main Documentation**: https://shb.skarabox.com/  
-**Services Documentation**: https://shb.skarabox.com/services.html  
-**Usage Manual**: https://shb.skarabox.com/usage.html
+## Quick Start (TL;DR)
 
-## Overview
+**For experienced users who want to get started quickly:**
 
-Self Host Blocks provides:
-- **Pre-configured Services**: Nextcloud, Vaultwarden, Jellyfin, Home Assistant, Forgejo, and more
-- **Unified Configuration**: Consistent interface for LDAP, SSO, SSL, monitoring, and backups
-- **Building Blocks**: Reusable components (Authelia, PostgreSQL, Nginx, monitoring stack)
-- **Deployment Tools**: Support for Colmena, deploy-rs, and nixos-rebuild
-- **Security**: Built-in SOPS secrets management and SSL automation
+```bash
+# 1. Set up project
+cd selfhostblocks-collection/ && mkdir -p my-selfhostblocks && cd my-selfhostblocks
 
-## Initialization Steps
+# 2. Copy templates
+cp ../selfhostblocks/demo/nextcloud/{flake.nix,configuration.nix,secrets.yaml,sops.yaml} ./
 
-### 1. Set up your project directory
+# 3. Install NixOS (skip if already have NixOS)
+nix run github:nix-community/nixos-anywhere -- \
+  --generate-hardware-config nixos-generate-config ./hardware-configuration.nix \
+  --flake .#install --target-host root@YOUR-SERVER-IP
 
-Navigate to the `my-selfhostblocks/` directory (create it if it doesn't exist):
+# 4. Set up secrets
+nix run nixpkgs#age-keygen > sops.key
+# Edit secrets.yaml and add your domain/passwords
+
+# 5. Deploy services
+nixos-rebuild switch --flake .#myserver --target-host root@YOUR-SERVER-IP
+```
+
+**Details for each step below ↓**
+
+---
+
+## Step-by-Step Guide
+
+### Step 1: Prerequisites & Setup
+
+#### System Requirements
+- **Development machine**: Any system with Nix installed
+- **Target server**: VPS, bare metal, or cloud instance with SSH access
+- **Minimum server specs**: 2GB RAM, 20GB storage
+- **Domain name**: For SSL certificates and proper service access
+
+#### Install Required Tools
+
+If you don't have Nix installed:
+```bash
+# Install Nix (multi-user installation)
+sh <(curl -L https://nixos.org/nix/install) --daemon
+
+# Enable flakes
+echo "experimental-features = nix-command flakes" >> ~/.config/nix/nix.conf
+```
+
+#### Set Up Project Directory
 
 ```bash
 cd selfhostblocks-collection/
@@ -29,294 +61,486 @@ mkdir -p my-selfhostblocks
 cd my-selfhostblocks
 ```
 
-### 2. Copy example configuration files
+### Step 2: Choose Your Path
 
-Choose a service example from the demos to start with. For Nextcloud:
+Choose based on your server's current state:
+
+**Path A: Fresh Server** (Ubuntu, Debian, other Linux, or bare metal)
+- Requires installing NixOS first using nixos-anywhere
+- Follow the complete workflow below
+
+**Path B: Existing NixOS System**
+- Skip to [Step 4: Configuration](#step-4-configuration)
+- Assumes you already have NixOS running with SSH access
+
+### Step 3: Server Provisioning (Path A Only)
+
+**Skip this step if you already have NixOS installed (Path B)**
+
+#### 3.1: Copy Base Templates
 
 ```bash
-# Copy basic configuration files
+# Copy configuration templates
 cp ../selfhostblocks/demo/nextcloud/flake.nix ./
 cp ../selfhostblocks/demo/nextcloud/configuration.nix ./
-cp ../selfhostblocks/demo/nextcloud/hardware-configuration.nix ./
-
-# Copy secrets and SSH setup
 cp ../selfhostblocks/demo/nextcloud/secrets.yaml ./
 cp ../selfhostblocks/demo/nextcloud/sops.yaml ./
-cp ../selfhostblocks/demo/nextcloud/keys.txt ./
-cp ../selfhostblocks/demo/nextcloud/ssh_config ./
 ```
 
-### 3. Generate SSH keys for deployment
+#### 3.2: Create Installation Files
 
-```bash
-# Generate SSH key pair for deployment
-ssh-keygen -t ed25519 -f sshkey -N ""
-
-# Set proper permissions
-chmod 600 sshkey
-chmod 644 sshkey.pub
-```
-
-### 4. Generate hardware configuration (for real servers)
-
-For deployment to actual servers, generate hardware configuration:
-
-```bash
-# SSH into your target server and run:
-nixos-generate-config --show-hardware-config > hardware-configuration.nix
-```
-
-## Configuration
-
-### Basic Service Setup
-
-Edit `flake.nix` to configure your services. Here's a basic Nextcloud example:
+**Create `disk-config.nix`** (adjust `/dev/sda` for your server):
 
 ```nix
-{
-  description = "My Self Host Blocks Server";
-
-  inputs = {
-    selfhostblocks.url = "github:ibizaman/selfhostblocks";
-    sops-nix.url = "github:Mic92/sops-nix";
-  };
-
-  outputs = inputs@{ self, selfhostblocks, sops-nix }: {
-    nixosConfigurations.myserver = selfhostblocks.lib.x86_64-linux.patchedNixpkgs.lib.nixosSystem {
-      system = "x86_64-linux";
-      modules = [
-        ./configuration.nix
-        ./hardware-configuration.nix
-        selfhostblocks.nixosModules.x86_64-linux.default
-        sops-nix.nixosModules.default
-        {
-          # Basic Nextcloud setup
-          shb.nextcloud = {
-            enable = true;
-            domain = "yourdomain.com";
-            subdomain = "nextcloud";
-            adminPass.result = config.shb.sops.secret."nextcloud/adminpass".result;
+{ lib, ... }: {
+  disko.devices = {
+    disk.main = {
+      device = lib.mkDefault "/dev/sda";
+      type = "disk";
+      content = {
+        type = "gpt";
+        partitions = {
+          boot = {
+            name = "boot";
+            size = "1M";
+            type = "EF02";
           };
-
-          # SSL configuration
-          shb.certs.certs.letsencrypt.yourdomain = {
-            domain = "*.yourdomain.com";
-            group = "nginx";
-            adminEmail = "admin@yourdomain.com";
+          esp = {
+            name = "ESP";
+            size = "500M";
+            type = "EF00";
+            content = {
+              type = "filesystem";
+              format = "vfat";
+              mountpoint = "/boot";
+            };
           };
-
-          # SOPS secrets
-          sops.defaultSopsFile = ./secrets.yaml;
-          shb.sops.secret."nextcloud/adminpass".request = config.shb.nextcloud.adminPass.request;
-        }
-      ];
+          root = {
+            name = "root";
+            size = "100%";
+            content = {
+              type = "lvm_pv";
+              vg = "system";
+            };
+          };
+        };
+      };
+    };
+    lvm_vg.system = {
+      type = "lvm_vg";
+      lvs = {
+        root = {
+          size = "50G";
+          content = {
+            type = "filesystem";
+            format = "ext4";
+            mountpoint = "/";
+          };
+        };
+        data = {
+          size = "100%FREE";
+          content = {
+            type = "filesystem";
+            format = "ext4";
+            mountpoint = "/var/lib";
+          };
+        };
+      };
     };
   };
 }
 ```
 
-### Adding More Services
+#### 3.3: Update Flake for Installation
 
-You can easily add more services to the same configuration:
+**Edit `flake.nix`** to add installation configuration:
 
 ```nix
-# Add Vaultwarden
+{
+  description = "Self Host Blocks Server";
+
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    disko.url = "github:nix-community/disko";
+    disko.inputs.nixpkgs.follows = "nixpkgs";
+    selfhostblocks.url = "github:ibizaman/selfhostblocks";
+    sops-nix.url = "github:Mic92/sops-nix";
+  };
+
+  outputs = inputs@{ self, nixpkgs, disko, selfhostblocks, sops-nix }: {
+    nixosConfigurations = {
+      # Basic NixOS installation
+      install = nixpkgs.lib.nixosSystem {
+        system = "x86_64-linux";
+        modules = [
+          disko.nixosModules.disko
+          ./configuration.nix
+          ./disk-config.nix
+          ./hardware-configuration.nix
+        ];
+      };
+
+      # Full Self Host Blocks server
+      myserver = selfhostblocks.lib.x86_64-linux.patchedNixpkgs.lib.nixosSystem {
+        system = "x86_64-linux";
+        modules = [
+          disko.nixosModules.disko
+          ./configuration.nix
+          ./disk-config.nix
+          ./hardware-configuration.nix
+          selfhostblocks.nixosModules.x86_64-linux.default
+          sops-nix.nixosModules.default
+          {
+            # Services will be configured in Step 4
+            sops.defaultSopsFile = ./secrets.yaml;
+          }
+        ];
+      };
+    };
+  };
+}
+```
+
+#### 3.4: Update Configuration
+
+**Edit `configuration.nix`** - replace the SSH key with yours:
+
+```nix
+{ modulesPath, lib, pkgs, ... }: {
+  imports = [
+    (modulesPath + "/installer/scan/not-detected.nix")
+    ./disk-config.nix
+  ];
+
+  boot.loader.grub = {
+    efiSupport = true;
+    efiInstallAsRemovable = true;
+  };
+
+  services.openssh.enable = true;
+  
+  environment.systemPackages = with pkgs; [ curl git htop vim ];
+
+  # REPLACE WITH YOUR SSH PUBLIC KEY
+  users.users.root.openssh.authorizedKeys.keys = [
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI... your-public-key-here"
+  ];
+
+  networking.hostName = "myserver";
+  networking.firewall.allowedTCPPorts = [ 22 80 443 ];
+  system.stateVersion = "24.05";
+}
+```
+
+#### 3.5: Install NixOS
+
+```bash
+# Install NixOS on your server
+nix run github:nix-community/nixos-anywhere -- \
+  --generate-hardware-config nixos-generate-config ./hardware-configuration.nix \
+  --flake .#install \
+  --target-host root@YOUR-SERVER-IP
+```
+
+**Note**: The server will reboot during installation. SSH host keys will change.
+
+### Step 4: Configuration
+
+#### 4.1: Configure Services
+
+**Edit your `flake.nix`** to add Self Host Blocks services to the `myserver` configuration:
+
+```nix
+# Inside the myserver configuration modules list, add:
+{
+  # Nextcloud file sharing
+  shb.nextcloud = {
+    enable = true;
+    domain = "example.com";  # CHANGE TO YOUR DOMAIN
+    subdomain = "nextcloud";
+    adminPass.result = config.shb.sops.secret."nextcloud/adminpass".result;
+  };
+
+  # SSL certificates
+  shb.certs.certs.letsencrypt.example = {  # CHANGE TO YOUR DOMAIN
+    domain = "*.example.com";
+    group = "nginx";
+    adminEmail = "admin@example.com";  # CHANGE TO YOUR EMAIL
+  };
+
+  # Connect SSL to Nextcloud
+  shb.nextcloud.ssl = config.shb.certs.certs.letsencrypt.example;
+
+  # SOPS secrets configuration
+  sops.defaultSopsFile = ./secrets.yaml;
+  shb.sops.secret."nextcloud/adminpass".request = config.shb.nextcloud.adminPass.request;
+}
+```
+
+#### 4.2: Add More Services (Optional)
+
+You can add multiple services to the same server:
+
+```nix
+# Password manager
 shb.vaultwarden = {
   enable = true;
-  domain = "yourdomain.com";
+  domain = "example.com";
   subdomain = "vault";
-  ssl = config.shb.certs.certs.letsencrypt.yourdomain;
+  ssl = config.shb.certs.certs.letsencrypt.example;
 };
 
-# Add LDAP integration
+# LDAP user directory
 shb.lldap = {
   enable = true;
-  domain = "yourdomain.com";
+  domain = "example.com";
   subdomain = "ldap";
-  ssl = config.shb.certs.certs.letsencrypt.yourdomain;
-  ldapUserPassword.result = config.shb.sops.secret."lldap/user_password".result;
-  jwtSecret.result = config.shb.sops.secret."lldap/jwt_secret".result;
+  ssl = config.shb.certs.certs.letsencrypt.example;
+  ldapUserPassword.result = config.shb.sops.secret."lldap/password".result;
+  jwtSecret.result = config.shb.sops.secret."lldap/jwt".result;
 };
 
-# Add SSO with Authelia
-shb.authelia = {
-  enable = true;
-  domain = "yourdomain.com";
-  subdomain = "auth";
-  ssl = config.shb.certs.certs.letsencrypt.yourdomain;
-  # ... additional Authelia configuration
-};
+# Remember to add corresponding secrets to Step 5
 ```
 
-## Secrets Management
+### Step 5: Secrets Management
 
-### 1. Generate SOPS key
+#### 5.1: Generate Encryption Key
 
 ```bash
-# Generate age key for secrets encryption
+# Generate age key for encrypting secrets
 nix run nixpkgs#age-keygen > sops.key
+```
 
-# Update sops.yaml with your public key
+#### 5.2: Configure SOPS
+
+**Edit `sops.yaml`** to use your key:
+
+```yaml
+keys:
+  - &admin_key your-age-public-key-here  # Get from sops.key file
+creation_rules:
+  - path_regex: secrets.yaml$
+    key_groups:
+    - age:
+      - *admin_key
+```
+
+#### 5.3: Create Secrets
+
+**Edit secrets (encrypted file)**:
+
+```bash
 SOPS_AGE_KEY_FILE=sops.key nix run nixpkgs#sops -- --config sops.yaml secrets.yaml
 ```
 
-### 2. Edit secrets
+**Add your secrets** (adjust for your services):
 
-```bash
-# Edit encrypted secrets file
-SOPS_AGE_KEY_FILE=sops.key nix run nixpkgs#sops -- --config sops.yaml secrets.yaml
+```yaml
+nextcloud:
+  adminpass: your-secure-admin-password-here
+
+# If using LLDAP
+lldap:
+  password: your-ldap-admin-password
+  jwt: your-jwt-secret-here
+
+# Generate random secrets with:
+# nix run nixpkgs#openssl -- rand -hex 32
 ```
 
-### 3. Generate random secrets
+#### 5.4: Add Server Key (For Remote Deployment)
 
 ```bash
-# Generate secure random passwords
-nix run nixpkgs#openssl -- rand -hex 32
+# Add your server's SSH key to secrets for remote deployment
+SOPS_AGE_KEY_FILE=sops.key nix run nixpkgs#sops -- --config sops.yaml -r -i \
+  --add-age $(ssh-keyscan -t ed25519 YOUR-SERVER-IP 2>/dev/null | nix run nixpkgs#ssh-to-age --) \
+  secrets.yaml
 ```
 
-## Deployment
+### Step 6: Deployment
 
-### Method 1: VM Testing (Development)
+#### 6.1: Test Configuration (Recommended)
 
-For local testing with a VM:
+Test your configuration locally first:
 
 ```bash
-# Build and start VM for testing
+# Build and test in VM
 nixos-rebuild build-vm --flake .#myserver
+
+# Start VM with port forwarding
 QEMU_NET_OPTS="hostfwd=tcp::2222-:2222,hostfwd=tcp::8080-:80,hostfwd=tcp::8443-:443" ./result/bin/run-nixos-vm
 
-# Test access
-# Add to /etc/hosts: 127.0.0.1 yourdomain.com nextcloud.yourdomain.com
-# Visit: http://nextcloud.yourdomain.com:8080
+# Add to /etc/hosts for testing:
+# 127.0.0.1 example.com nextcloud.example.com vault.example.com
+
+# Visit: http://nextcloud.example.com:8080
 ```
 
-### Method 2: Remote Deployment with Colmena
+#### 6.2: Deploy to Production
 
-For production deployment to remote servers:
+**For existing NixOS systems (Path B) or after Step 3 installation:**
 
-#### 1. Set up Colmena configuration
+```bash
+# Deploy your services
+nixos-rebuild switch --flake .#myserver --target-host root@YOUR-SERVER-IP
+```
 
-Add to your `flake.nix`:
+**Alternative: Colmena deployment** (for advanced users):
 
+Add to `flake.nix`:
 ```nix
-outputs = inputs@{ self, selfhostblocks, sops-nix }: {
-  # ... nixosConfigurations above
-
-  colmena = {
-    meta = {
-      nixpkgs = import selfhostblocks.lib.x86_64-linux.patchedNixpkgs {
-        system = "x86_64-linux";
-      };
-      specialArgs = inputs;
+colmena = {
+  meta = {
+    nixpkgs = import selfhostblocks.lib.x86_64-linux.patchedNixpkgs {
+      system = "x86_64-linux";
     };
-
-    myserver = {
-      imports = [ ./configuration.nix ./hardware-configuration.nix /* other modules */ ];
-      
-      deployment = {
-        targetHost = "192.168.1.100";  # Your server IP
-        targetUser = "nixos";
-        targetPort = 22;
-        sshOptions = [ "-i" "./sshkey" ];
-      };
+  };
+  myserver = {
+    imports = [ ./configuration.nix ./hardware-configuration.nix /* your modules */ ];
+    deployment = {
+      targetHost = "YOUR-SERVER-IP";
+      targetUser = "root";
     };
   };
 };
 ```
 
-#### 2. Deploy to server
-
+Deploy:
 ```bash
-# Add server's SSH key to secrets (for remote servers)
-SOPS_AGE_KEY_FILE=sops.key nix run nixpkgs#sops -- --config sops.yaml -r -i \
-  --add-age $(ssh-keyscan -t ed25519 your-server-ip 2>/dev/null | nix run nixpkgs#ssh-to-age --) \
-  secrets.yaml
-
-# Deploy with Colmena
 nix run nixpkgs#colmena -- apply --on myserver
 ```
 
-### Method 3: Deploy-rs
+#### 6.3: Verify Deployment
 
-If you prefer deploy-rs, add this to your `flake.nix`:
+1. **Check services**: `ssh root@YOUR-SERVER-IP systemctl status nextcloud-phpfpm`
+2. **Test access**: Visit `https://nextcloud.example.com` (replace with your domain)
+3. **Check logs**: `ssh root@YOUR-SERVER-IP journalctl -f -u nextcloud-phpfpm`
+
+### Step 7: DNS & Access
+
+#### 7.1: Configure DNS
+
+Point your domain to your server:
+```
+A    example.com           → YOUR-SERVER-IP  
+A    nextcloud.example.com → YOUR-SERVER-IP
+A    vault.example.com     → YOUR-SERVER-IP
+```
+
+#### 7.2: Access Your Services
+
+- **Nextcloud**: https://nextcloud.example.com
+- **Vaultwarden**: https://vault.example.com (if configured)
+- **Admin login**: Use the password from your secrets.yaml
+
+---
+
+## Reference
+
+### Available Services
+
+Self Host Blocks provides these services:
+
+- **Nextcloud**: File sharing, calendar, contacts
+- **Vaultwarden**: Bitwarden-compatible password manager  
+- **Jellyfin**: Media server for movies and music
+- **Home Assistant**: Home automation platform
+- **Forgejo**: Git repository hosting
+- **Audiobookshelf**: Audiobook and podcast server
+- **Deluge + *arr**: Torrent client with automation
+- **Grocy**: Grocery and household management
+
+### Building Blocks
+
+These components work together across services:
+
+- **SSL/TLS**: Automatic Let's Encrypt certificates
+- **LDAP**: User directory with LLDAP
+- **SSO**: Single sign-on with Authelia
+- **Monitoring**: Grafana + Prometheus + Loki
+- **Backup**: Automated backups with BorgBackup/Restic
+- **Database**: PostgreSQL with automatic management
+- **Reverse Proxy**: Nginx with automatic configuration
+
+### Common Configurations
+
+#### LDAP Integration
 
 ```nix
-deploy.nodes.myserver = {
-  hostname = "192.168.1.100";
-  sshUser = "nixos";
-  sshOpts = [ "-i" "./sshkey" ];
-  profiles.system = {
-    user = "root";
-    path = selfhostblocks.lib.x86_64-linux.patchedNixpkgs.lib.deploy-rs.lib.activate.nixos 
-      self.nixosConfigurations.myserver;
-  };
+# Add LDAP to any service
+shb.nextcloud.apps.ldap = {
+  enable = true;
+  host = "127.0.0.1";
+  port = config.shb.lldap.ldapPort;
+  dcdomain = config.shb.lldap.dcdomain;
+  adminPassword.result = config.shb.sops.secret."lldap/password".result;
 };
 ```
 
-Then deploy:
+#### SSO with Authelia
 
-```bash
-nix run nixpkgs#deploy-rs -- .#myserver
+```nix
+# Add SSO to any service  
+shb.nextcloud.apps.sso = {
+  enable = true;
+  endpoint = "https://auth.example.com";
+  secret.result = config.shb.sops.secret."nextcloud/sso_secret".result;
+};
 ```
 
-## Available Services
+#### Monitoring
 
-Self Host Blocks provides the following services:
+```nix
+# Enable monitoring stack
+shb.monitoring = {
+  enable = true;
+  domain = "example.com";
+  subdomain = "monitoring";
+  ssl = config.shb.certs.certs.letsencrypt.example;
+};
+```
 
-- **Nextcloud**: File sharing and collaboration platform
-- **Vaultwarden**: Password manager (Bitwarden-compatible)
-- **Jellyfin**: Media server for movies, TV shows, music
-- **Home Assistant**: Home automation platform
-- **Forgejo**: Git forge (Gitea fork)
-- **Audiobookshelf**: Audiobook and podcast server
-- **Deluge + *arr**: Torrent client with Sonarr, Radarr, etc.
-- **Grocy**: Grocery and household management
-- **Hledger**: Plain-text accounting system
+### Troubleshooting
 
-## Building Blocks
+#### Common Issues
 
-Common blocks available for custom configurations:
+1. **Service won't start**: Check `journalctl -u service-name`
+2. **SSL certificate errors**: Verify DNS and domain configuration
+3. **Secrets not decrypted**: Ensure server's age key is in secrets.yaml
+4. **Permission errors**: Check file ownership and SELinux/AppArmor
 
-- **SSL/TLS**: Automatic certificate management with Let's Encrypt
-- **LDAP**: User directory with LLDAP
-- **SSO**: Single sign-on with Authelia
-- **Monitoring**: Grafana + Prometheus + Loki stack
-- **Backup**: Automated backups with BorgBackup or Restic
-- **Database**: PostgreSQL with automatic database creation
-- **Reverse Proxy**: Nginx with automatic virtual host configuration
-- **VPN**: WireGuard integration for secure access
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Secrets not decrypted**: Ensure server's age key is added to `secrets.yaml`
-2. **SSL certificate errors**: Check domain DNS and Let's Encrypt rate limits
-3. **Service startup failures**: Check `journalctl -u <service-name>` for errors
-4. **Permission issues**: Verify file ownership and directory permissions
-
-### Debug Commands
+#### Debug Commands
 
 ```bash
 # Check service status
-systemctl status nextcloud-setup
+systemctl status nextcloud-phpfpm
 
-# View service logs
+# View recent logs
 journalctl -f -u nextcloud-phpfpm
 
-# Test SSL certificates
-nix run nixpkgs#openssl -- s_client -connect yourdomain.com:443
+# Test SSL
+openssl s_client -connect example.com:443
 
 # Check secrets
 ls -la /run/secrets/
+
+# Test network connectivity
+curl -I https://nextcloud.example.com
 ```
 
-## Next Steps
+#### Getting Help
 
-1. **Read the manual**: Visit https://shb.skarabox.com/ for detailed service configuration
-2. **Join the community**: Matrix channel at https://matrix.to/#/#selfhostblocks:matrix.org
-3. **Customize**: Add your own services and modify existing configurations
-4. **Monitor**: Set up the monitoring stack for observability
-5. **Backup**: Configure automated backups for data protection
+- **Documentation**: https://shb.skarabox.com/
+- **Matrix Chat**: https://matrix.to/#/#selfhostblocks:matrix.org
+- **Issues**: https://github.com/ibizaman/selfhostblocks/issues
 
-For more advanced configurations and service-specific options, refer to the [complete documentation](https://shb.skarabox.com/services.html).
+### Next Steps
+
+1. **Explore services**: Try different services from the catalog
+2. **Set up monitoring**: Add the monitoring stack for observability  
+3. **Configure backups**: Set up automated data protection
+4. **Add users**: Configure LDAP for multi-user access
+5. **Enable SSO**: Set up Authelia for unified authentication
+
+For advanced configurations and service-specific options, see the [complete documentation](https://shb.skarabox.com/services.html).
