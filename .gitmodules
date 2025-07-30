@@ -1,30 +1,27 @@
-[submodule "skarabox"]
-	path = skarabox-collection/skarabox
-	url = git@github.com:nikhilmaddirala/skarabox.git
-[submodule "nixos-anywhere"]
-	path = nixos-anywhere-collection/nixos-anywhere
-	url = https://github.com/nix-community/nixos-anywhere.git
 [submodule "nix-config"]
-	path = nm-nix-collection/nix-config
+	path = nix-config
 	url = git@github.com:nikhilmaddirala/nix-config.git
-[submodule "selfhostblocks-collection/selfhostblocks"]
-	path = selfhostblocks-collection/selfhostblocks
+[submodule "references/@nikhilmaddirala-skarabox"]
+	path = references/@nikhilmaddirala-skarabox
+	url = git@github.com:nikhilmaddirala/skarabox.git
+[submodule "references/@nix-community-nixos-anywhere"]
+	path = references/@nix-community-nixos-anywhere
+	url = https://github.com/nix-community/nixos-anywhere.git
+[submodule "references/@ibizaman-selfhostblocks"]
+	path = references/@ibizaman-selfhostblocks
 	url = git@github.com:ibizaman/selfhostblocks.git
-[submodule "nm-nix-collection/selfhostblocks-test"]
-	path = nm-nix-collection/selfhostblocks-test
+[submodule "references/@nikhilmaddirala-selfhostblocks-test"]
+	path = references/@nikhilmaddirala-selfhostblocks-test
 	url = git@github.com:nikhilmaddirala/selfhostblocks-test.git
-[submodule "nm-nix-collection/dragon-test-project"]
-	path = nm-nix-collection/dragon-test-project
+[submodule "references/@nikhilmaddirala-dragon-test-project"]
+	path = references/@nikhilmaddirala-dragon-test-project
 	url = git@github.com:nikhilmaddirala/dragon-test-project.git
-[submodule "m3tam3re-collection/nixos-config"]
-	path = m3tam3re-collection/nixos-config
+[submodule "references/@m3tam3re-nixos-config"]
+	path = references/@m3tam3re-nixos-config
 	url = https://code.m3ta.dev/m3tam3re/nixos-config.git
-[submodule "misc-collections/Misterio77-nix-starter-configs"]
-	path = misc-collections/Misterio77-nix-starter-configs
+[submodule "references/@Misterio77-nix-starter-configs"]
+	path = references/@Misterio77-nix-starter-configs
 	url = https://github.com/Misterio77/nix-starter-configs.git
-[submodule "misc-collections/mitchellh-nixos-config"]
-	path = misc-collections/mitchellh-nixos-config
+[submodule "references/@mitchellh-nixos-config"]
+	path = references/@mitchellh-nixos-config
 	url = https://github.com/mitchellh/nixos-config.git
-[submodule "nm-nix-collection/nix-config"]
-	path = nm-nix-collection/nix-config
-	url = git@github.com:nikhilmaddirala/nix-config.git

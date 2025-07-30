@@ -8,35 +8,46 @@ Dragon-server is a collection-based repository for experimenting with NixOS serv
 
 ## Repository Architecture
 
-The repository is structured as a **collection-based architecture** with four main collections:
+The repository is now structured with a clean, organized layout:
 
-### 1. Skarabox Collection (`skarabox-collection/`)
-- **Core Framework**: Git submodule of forked Skarabox - a NixOS server installation framework
-- **Key Features**: Bootable beacon ISOs, ZFS encryption, remote unlock, deployment automation
-- **Configuration**: `my-skarabox/` contains generated configuration and state
-- **Primary Use**: Headless NixOS installation with batteries-included security
+```
+dragon-server/
+├── nix-config/                    # Primary working Nix configuration (main development focus)
+├── references/                    # All reference submodules with namespace prefixes
+│   ├── @nikhilmaddirala-skarabox/           # Skarabox NixOS installation framework
+│   ├── @nix-community-nixos-anywhere/       # nixos-anywhere remote installation
+│   ├── @ibizaman-selfhostblocks/            # Self-hosted service blocks
+│   ├── @nikhilmaddirala-selfhostblocks-test/ # Selfhostblocks experiments
+│   ├── @nikhilmaddirala-dragon-test-project/ # Test project configurations
+│   ├── @m3tam3re-nixos-config/              # m3tam3re's NixOS configurations
+│   ├── @Misterio77-nix-starter-configs/     # Community starter configs
+│   └── @mitchellh-nixos-config/             # Mitchell Hashimoto's configs
+├── docs/                          # All documentation files
+├── scratchpad/                    # Working/experiment directories
+└── README.md                      # Main project documentation
+```
 
-### 2. NixOS Anywhere Collection (`nixos-anywhere-collection/`)  
-- **Core Framework**: Git submodule of nixos-anywhere project
-- **Key Features**: Remote NixOS installation, disk partitioning, configuration deployment
-- **Configuration**: `my-nixos-anywhere/` contains installation configuration
-- **Primary Use**: Direct remote installation without custom ISOs
+### Primary Components
 
-### 3. Self-host Blocks Collection (`selfhostblocks-collection/`)
-- **Core Framework**: Git submodule of selfhostblocks - modular NixOS service blocks
-- **Key Features**: Pre-configured service modules (Nextcloud, Vaultwarden, monitoring, etc.)
-- **Configuration**: `my-selfhostblocks/` for service configurations  
-- **Primary Use**: Composable self-hosted services with built-in best practices
+**Main Configuration (`nix-config/`)**:
+- Primary development focus - Nikhil's Nix Darwin and NixOS configurations
+- Located at root for easy access and development
 
-### 4. NM Nix Collection (`nm-nix-collection/`)
-- **Personal Configurations**: Nikhil's Nix configurations and experiments
-- **Submodules**: `nix-config/` (Nix Darwin), `dragon-test-project/`, `selfhostblocks-test/`
-- **Primary Use**: Development environments and configuration templates
+**Reference Frameworks (`references/`)**:
+- **Skarabox** (`@nikhilmaddirala-skarabox/`): NixOS server installation with ZFS encryption, beacon ISOs, remote unlock
+- **nixos-anywhere** (`@nix-community-nixos-anywhere/`): Remote NixOS installation without custom ISOs  
+- **Self-host Blocks** (`@ibizaman-selfhostblocks/`): Modular NixOS service blocks (Nextcloud, Vaultwarden, etc.)
+- **Community Configs**: Various starter templates and example configurations
+
+**Working Areas (`scratchpad/`)**:
+- `my-skarabox/`: Skarabox instance configurations and state
+- `my-nixos-anywhere/`: nixos-anywhere installation configurations  
+- `my-selfhostblocks/`: Self-hosted service configurations
 
 ## Essential Commands
 
 ### Skarabox Commands (Primary Framework)
-Navigate to `skarabox-collection/skarabox/` for all Skarabox operations:
+Navigate to `references/@nikhilmaddirala-skarabox/` for all Skarabox operations:
 
 ```bash
 # Initialize new Skarabox instance
@@ -71,11 +82,11 @@ When working on macOS with Skarabox, be aware of cross-platform limitations:
 
 ```bash
 # For local development commands that should work on both macOS and Linux
-nix run /Users/nikhilmaddirala/repos/dragon-server/skarabox-collection/skarabox#init -- -p /Users/nikhilmaddirala/repos/dragon-server/skarabox-collection/skarabox
+nix run /Users/nikhilmaddirala/repos/dragon-server/references/@nikhilmaddirala-skarabox#init -- -p /Users/nikhilmaddirala/repos/dragon-server/references/@nikhilmaddirala-skarabox
 
-# Manual alternatives for cross-platform compatibility
-echo "[$(cat ./myskarabox/ip)]:22 $(cat ./myskarabox/host_key.pub | cut -d' ' -f1-2)" > ./myskarabox/known_hosts
-ssh -o StrictHostKeyChecking=no -p 22 root@$(cat ./myskarabox/ip) sudo nixos-facter > ./myskarabox/facter.json
+# Manual alternatives for cross-platform compatibility (run from scratchpad/my-skarabox/)
+echo "[$(cat ./ip)]:22 $(cat ./host_key.pub | cut -d' ' -f1-2)" > ./known_hosts
+ssh -o StrictHostKeyChecking=no -p 22 root@$(cat ./ip) sudo nixos-facter > ./facter.json
 ```
 
 ## Key Technologies and Architecture
@@ -102,9 +113,9 @@ The repository includes known issues and solutions for macOS development:
 ## Development Workflow
 
 ### Setting Up a New Host
-1. Navigate to appropriate collection directory
+1. Navigate to appropriate reference directory (`references/@nikhilmaddirala-skarabox/`, etc.)
 2. Run initialization command for chosen framework
-3. Configure host-specific settings (IP, SSH keys, modules)
+3. Configure host-specific settings (IP, SSH keys, modules) in `scratchpad/my-<framework>/`
 4. Generate secrets and hardware configuration
 5. Test with beacon VM before production deployment
 6. Deploy using chosen deployment tool
@@ -121,12 +132,13 @@ The repository includes known issues and solutions for macOS development:
 - **Missing commands**: Ensure hosts are configured in flake before accessing host-specific commands
 - **SOPS decryption**: Verify key paths and age key availability
 
-## Tasks and Documentation
+## Documentation
 
-The `tasks/` directory contains detailed implementation notes and solutions:
-- Cross-platform compatibility fixes
-- SSH configuration and troubleshooting
-- Known issues and their resolutions
-- Implementation journey documentation
+The `docs/` directory contains comprehensive documentation:
+- `skarabox.md`: Detailed Skarabox framework documentation and commands
+- `m3tam3re.md`: m3tam3re's configuration documentation
+- `selfhostblocks-collection-readme.md`: Self-host blocks collection overview
+- `skarabox-fix-cross-platform-gen-knownhosts-file.md`: Cross-platform compatibility fixes
+- `skarabox-nix-darwin-linux-builder-ssh-fix.md`: SSH configuration troubleshooting
 
-Each task file provides comprehensive analysis, root cause identification, and step-by-step solutions for complex technical challenges encountered during development.
+Each documentation file provides comprehensive analysis, implementation details, and step-by-step solutions for complex technical challenges encountered during development.
