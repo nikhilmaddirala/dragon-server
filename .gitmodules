@@ -25,3 +25,6 @@
 [submodule "references/@mitchellh-nixos-config"]
 	path = references/@mitchellh-nixos-config
 	url = https://github.com/mitchellh/nixos-config.git
+[submodule "references/@dustinlyons-nixos-config"]
+	path = references/@dustinlyons-nixos-config
+	url = https://github.com/dustinlyons/nixos-config.git
