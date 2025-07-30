@@ -1,4 +1,4 @@
-# Dragon-nixos-server
+# Dragon-server
 In this project I am trying out various frameworks to get a NixOS server up and running on a Cloud VPS.
 
 Folder structure:
@@ -11,11 +11,14 @@ Folder structure:
 - **selfhostblocks-collection/**: Collection containing selfhostblocks-related files
   - selfhostblocks/: git submodule of the public selfhostblocks project
   - my-selfhostblocks/: directory for selfhostblocks configuration and state
-- **nix-config/**: git submodule containing my system configuration files relevant for server deployment - especially my Nix Darwin flake 
+- **nm-nix-collection/**: Collection containing Nikhil's Nix configuration files
+  - nix-config/: git submodule containing my system configuration files relevant for server deployment - especially my Nix Darwin flake
+  - dragon-test-project/: git submodule containing NixOS configuration experiments
+  - selfhostblocks-test/: git submodule containing NixOS configurations using selfhostblocks framework 
 
 ## Skarabax
 For developing a local fork, you need to replace the commands in the instructions with the following:
 
 ```bash
-nix run /Users/nikhilmaddirala/repos/dragon-skarabox/skarabox-collection/skarabox#init -- -p /Users/nikhilmaddirala/repos/dragon-skarabox/skarabox-collection/skarabox 
+nix run /Users/nikhilmaddirala/repos/dragon-server/skarabox-collection/skarabox#init -- -p /Users/nikhilmaddirala/repos/dragon-server/skarabox-collection/skarabox 
 ```

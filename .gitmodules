@@ -6,8 +6,14 @@
 	path = nixos-anywhere-collection/nixos-anywhere
 	url = https://github.com/nix-community/nixos-anywhere.git
 [submodule "nix-config"]
-	path = nix-config
+	path = nm-nix-collection/nix-config
 	url = git@github.com:nikhilmaddirala/nix-config.git
 [submodule "selfhostblocks-collection/selfhostblocks"]
 	path = selfhostblocks-collection/selfhostblocks
 	url = git@github.com:ibizaman/selfhostblocks.git
+[submodule "nm-nix-collection/selfhostblocks-test"]
+	path = nm-nix-collection/selfhostblocks-test
+	url = git@github.com:nikhilmaddirala/selfhostblocks-test.git
+[submodule "nm-nix-collection/dragon-test-project"]
+	path = nm-nix-collection/dragon-test-project
+	url = git@github.com:nikhilmaddirala/dragon-test-project.git
