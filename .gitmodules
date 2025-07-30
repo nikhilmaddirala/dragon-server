@@ -5,3 +5,6 @@
 [submodule "nixos-anywhere"]
 	path = nixos-anywhere
 	url = https://github.com/nix-community/nixos-anywhere.git
+[submodule "nix-config"]
+	path = nix-config
+	url = git@github.com:nikhilmaddirala/nix-config.git
